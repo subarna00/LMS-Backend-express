@@ -3,9 +3,10 @@ import jwt, { Secret } from "jsonwebtoken";
 import { CatchAsyncErrorMiddleware } from "../middleware/catchAsyncErrors";
 import { IUser, userModel } from "../models/user.model";
 import ErrorHandler from "../utils/errorHandelers";
-import ejs from "ejs";
-import path from "path";
+
 import { sendMail } from "../utils/sendMail";
+import { sendToken } from "../utils/jwt";
+import { redis } from "../utils/redis";
 require("dotenv").config();
 interface IRegisterBody {
     name: string;
@@ -116,7 +117,21 @@ export const loginUser = CatchAsyncErrorMiddleware(async (req:Request,res: Respo
         if (!isPasswordMatch) {
             return next(new ErrorHandler("Invalid email and password.", 400));
         }
-        
+        sendToken(user,200,res);
+    } catch (error: any) {
+        return next(new ErrorHandler(error.message, 400));
+    }
+})
+
+export const logoutUser = CatchAsyncErrorMiddleware(async (req: Request,res: Response , next: NextFunction)=>{
+    try {
+        res.cookie("access_token","",{maxAge:1});
+        res.cookie("refresh_token","",{maxAge:1});
+        redis.del(req?.user?._id);
+        res.status(200).json({
+            success: true,
+            message:"Logged out successfully."
+        })
     } catch (error: any) {
         return next(new ErrorHandler(error.message, 400));
     }
