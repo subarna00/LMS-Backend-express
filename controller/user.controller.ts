@@ -1,12 +1,13 @@
 import { NextFunction, Request, Response } from "express";
-import jwt, { Secret } from "jsonwebtoken";
+import jwt, { JwtPayload, Secret } from "jsonwebtoken";
 import { CatchAsyncErrorMiddleware } from "../middleware/catchAsyncErrors";
 import { IUser, userModel } from "../models/user.model";
 import ErrorHandler from "../utils/errorHandelers";
 
 import { sendMail } from "../utils/sendMail";
-import { sendToken } from "../utils/jwt";
+import { accessTokenOptions, refreshTokenOptions, sendToken } from "../utils/jwt";
 import { redis } from "../utils/redis";
+import { env } from "process";
 require("dotenv").config();
 interface IRegisterBody {
     name: string;
@@ -135,4 +136,36 @@ export const logoutUser = CatchAsyncErrorMiddleware(async (req: Request,res: Res
     } catch (error: any) {
         return next(new ErrorHandler(error.message, 400));
     }
+})
+
+export const updateAccessToken = CatchAsyncErrorMiddleware(async (req: Request,res: Response , next: NextFunction)=>{
+        try {
+            const refresh_token = req.cookies.refresh_token as string;
+
+            const decoded = jwt.verify(refresh_token,env.REFRESH_TOKEN as string) as JwtPayload;
+            if (!decoded) {
+                return next(new ErrorHandler("Could not refresh token.", 400));
+            }
+
+            const session = await redis.get(decoded.id as string);
+            if (!session) {
+                return next(new ErrorHandler("Could not refresh token.", 400));
+            }
+
+            const user = JSON.parse(session);
+            const access_token = jwt.sign({id: user._id},env.ACCESS_TOKEN as string,{
+                expiresIn:"5m"
+            })
+
+            res.cookie("access_token", access_token, accessTokenOptions);
+            res.cookie("refresh_token", refresh_token, refreshTokenOptions);
+
+            res.status(200).json({
+                success: true,
+                access_token
+            })
+
+        } catch (error: any) {
+            return next(new ErrorHandler(error.message, 400));
+        }
 })

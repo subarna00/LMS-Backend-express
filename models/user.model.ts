@@ -82,11 +82,11 @@ userSchema.methods.comparePassword = async function (
 
 // sign in access token
 userSchema.methods.SignInAccessToken = function (){
-  return jwt.sign({id: this._id},process.env.ACCESS_TOKEN || '')
+  return jwt.sign({id: this._id},process.env.ACCESS_TOKEN || '',{expiresIn:"5m"})
 }
 // sign in refresh token
 userSchema.methods.SignInRefreshToken = function (){
-  return jwt.sign({id: this._id},process.env.REFRESH_TOKEN || '')
+  return jwt.sign({id: this._id},process.env.REFRESH_TOKEN || '',{expiresIn:"3d"})
 }
 
 export const userModel: Model<IUser> = mongoose.model("user",userSchema);
